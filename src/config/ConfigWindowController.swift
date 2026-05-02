@@ -1,86 +1,36 @@
 import Cocoa
 import Fcitx
 
-// Don't call it synchronously in SwiftUI as it will make IM temporarily unavailable in focused client.
-@MainActor
-func restartProcess() {
-  // Sheets prevent Fcitx5 from normal termination.
-  for window in NSApp.windows {
-    for sheet in window.sheets {
-      window.endSheet(sheet)
-    }
-  }
-  NSApp.terminate(nil)
-}
+/// All config window controllers should subclass this. It sets up
+/// application states so that the config windows can receive user
+/// input.
+class ConfigWindowController: NSWindowController, NSWindowDelegate, NSToolbarDelegate {
+  static var controllers = [String: ConfigWindowController]()
 
-extension FcitxInputController {
-  @MainActor static var controllers = [String: ConfigWindowController]()
+  var key: String = ""
 
   @MainActor
-  func openWindow(_ key: String, _ type: ConfigWindowController.Type) {
-    var controller = FcitxInputController.controllers[key]
+  static func openWindow(_ key: String, _ type: ConfigWindowController.Type) {
+    var controller = controllers[key]
     if controller == nil {
       controller = type.init()
       controller?.setKey(key)
-      FcitxInputController.controllers[key] = controller
+      controllers[key] = controller
     }
     controller?.showWindow(nil)
   }
 
-  // Called when plugins are installed, so that the input methods and addons can be updated.
+  @MainActor
+  static func closeWindow(_ key: String) {
+    controllers[key]?.window?.performClose(nil)
+  }
+
   @MainActor
   static func refreshAll() {
     for controller in controllers.values {
       controller.refresh()
     }
   }
-
-  @MainActor
-  static func closeWindow(_ key: String) {
-    FcitxInputController.controllers[key]?.window?.performClose(nil)
-  }
-
-  @MainActor
-  @objc func plugin(_: Any? = nil) {
-    openWindow("plugin", PluginManager.self)
-  }
-
-  @MainActor
-  @objc func restart(_: Any? = nil) {
-    restartProcess()
-  }
-
-  @MainActor
-  @objc func about(_: Any? = nil) {
-    openWindow("about", FcitxAboutController.self)
-  }
-
-  @MainActor
-  @objc func globalConfig(_: Any? = nil) {
-    openWindow("global", GlobalConfigController.self)
-  }
-
-  @MainActor
-  @objc func inputMethod(_: Any? = nil) {
-    openWindow("im", InputMethodConfigController.self)
-  }
-
-  @MainActor
-  @objc func themeEditor(_: Any? = nil) {
-    openWindow("theme", ThemeEditorController.self)
-  }
-
-  @MainActor
-  @objc func advanced(_: Any? = nil) {
-    openWindow("advanced", AdvancedController.self)
-  }
-}
-
-/// All config window controllers should subclass this.  It sets up
-/// application states so that the config windows can receive user
-/// input.
-class ConfigWindowController: NSWindowController, NSWindowDelegate, NSToolbarDelegate {
-  var key: String = ""
 
   override init(window: NSWindow?) {
     super.init(window: window)
@@ -109,9 +59,9 @@ class ConfigWindowController: NSWindowController, NSWindowDelegate, NSToolbarDel
   func windowShouldClose(_ sender: NSWindow) -> Bool {
     sender.orderOut(nil)
     // Free memory and reset state.
-    FcitxInputController.controllers.removeValue(forKey: key)
+    Self.controllers.removeValue(forKey: key)
     // Switch back.
-    if FcitxInputController.controllers.count == 0 {
+    if Self.controllers.count == 0 {
       NSApp.setActivationPolicy(.prohibited)
     }
     return false
@@ -165,4 +115,16 @@ class ConfigWindowController: NSWindowController, NSWindowDelegate, NSToolbarDel
   }
 
   func refresh() {}
+}
+
+// Don't call it synchronously in SwiftUI as it will make IM temporarily unavailable in focused client.
+@MainActor
+func restartProcess() {
+  // Sheets prevent Fcitx5 from normal termination.
+  for window in NSApp.windows {
+    for sheet in window.sheets {
+      window.endSheet(sheet)
+    }
+  }
+  NSApp.terminate(nil)
 }
