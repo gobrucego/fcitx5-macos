@@ -1,5 +1,6 @@
 import Cocoa
 import Logging
+import UniformTypeIdentifiers
 
 let homeDir = FileManager.default.homeDirectoryForCurrentUser
 let libraryDir = homeDir.appendingPathComponent("Library/fcitx5")
@@ -38,6 +39,12 @@ func getArch() -> String {
   #endif
 }
 let arch = getArch()
+
+func fileTypes(_ extensions: [String]) -> [UTType] {
+  return extensions.compactMap {
+    UTType(filenameExtension: $0)
+  }
+}
 
 func getFileNamesWithExtension(_ path: String, _ suffix: String = "", _ full: Bool = false)
   -> [String]
